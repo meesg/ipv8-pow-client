@@ -86,7 +86,6 @@ class BlockchainCommunity(Community):
 
     @lazy_wrapper(SubmitTransaction)
     def on_submit_transaction(self, peer: Peer, payload: SubmitTransaction) -> None:
-        print(f"[tx] received transaction: {payload}")
         if not self.is_trusted(peer):
             return
         tx = Transaction(payload.sender_key, payload.data, payload.timestamp, payload.signature)
@@ -149,7 +148,7 @@ class BlockchainCommunity(Community):
         """Periodic tip poll: if a teammate is ahead of us, fetch their tip block."""
         if not self.is_member(peer):
             return
-        if payload.height > len(self.chain) - 1 and payload.tip_hash not in self.block_pool:
+        if payload.height >= len(self.chain) - 1 and payload.tip_hash not in self.block_pool:
             self.request_block(payload.height, peer)
 
     # --- chain state ----------------------------------------------------------
@@ -176,28 +175,24 @@ class BlockchainCommunity(Community):
 
     def try_adopt(self, peer: Peer | None = None) -> None:
         """Adopt the best chain reachable through pooled blocks; request missing parents."""
-        adopted = True
-        while adopted:
-            adopted = False
-            for block in sorted(self.block_pool.values(), key=lambda b: (-b.height, b.block_hash)):
-                if block.height <= len(self.chain) - 1 and \
-                        self.chain[block.height].block_hash == block.block_hash:
-                    continue  # already on our chain
-                branch, fork_point, missing = self.trace_branch(block)
-                if fork_point is None:
-                    if missing is not None:
-                        self.request_block(missing, peer)
-                    continue
-                tip = self.chain[-1]
-                longer = block.height > tip.height
-                tie_win = block.height == tip.height and block.block_hash < tip.block_hash
-                if longer or tie_win:
-                    self.chain = self.chain[:fork_point + 1] + list(reversed(branch))
-                    self.chain_tx_hashes = {txh for b in self.chain for txh in b.tx_hashes}
-                    print(f"[chain] height {block.height}, tip {block.block_hash.hex()[:16]} "
-                          f"(fork point {fork_point})")
-                    adopted = True
-                    break
+        for block in sorted(self.block_pool.values(), key=lambda b: (-b.height, b.block_hash)):
+            if block.height <= len(self.chain) - 1 and \
+                    self.chain[block.height].block_hash == block.block_hash:
+                continue  # already on our chain
+            branch, fork_point, missing = self.trace_branch(block)
+            if fork_point is None:
+                if missing is not None:
+                    self.request_block(missing, peer)
+                continue
+            tip = self.chain[-1]
+            longer = block.height > tip.height
+            tie_win = block.height == tip.height and block.block_hash < tip.block_hash
+            if longer or tie_win:
+                self.chain = self.chain[:fork_point + 1] + list(reversed(branch))
+                self.chain_tx_hashes = {txh for b in self.chain for txh in b.tx_hashes}
+                print(f"[chain] height {block.height}, tip {block.block_hash.hex()[:16]} "
+                        f"(fork point {fork_point})")
+                break
         # keep the pool small
         cutoff = len(self.chain) - 10
         for block_hash in [h for h, b in self.block_pool.items() if b.height < cutoff]:
@@ -257,9 +252,15 @@ class BlockchainCommunity(Community):
                 return  # restart on the new tip / with the new transactions
 
     def adopt_own_block(self, block: Block) -> None:
-        self.chain.append(block)
-        self.chain_tx_hashes.update(block.tx_hashes)
         self.block_pool[block.block_hash] = block
+
+        tip = self.chain[-1]
+        if block.prev_hash == tip.block_hash:
+            self.chain.append(block)
+            self.chain_tx_hashes.update(block.tx_hashes)
+        else:
+            self.try_adopt()  # prevent race condition where we adopted a block during the mining process
+
         print(f"[mine] found block {block.height} {block.block_hash.hex()[:16]} "
               f"({len(block.tx_hashes)} txs)")
         gossip = NewBlockGossip(block.height, block.prev_hash, block.txs_hash, block.timestamp,
