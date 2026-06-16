@@ -12,11 +12,11 @@ from ipv8.peer import Peer
 from ipv8.peerdiscovery.network import Network
 from ipv8.test.mocking.endpoint import AutoMockEndpoint
 
-from blockchain import BlockchainCommunity, BlockchainSettings
-from chain import genesis_block, make_block, meets_difficulty
+from community import BlockchainCommunity, BlockchainSettings
+from blocks import genesis_block, make_block, meets_difficulty
 
 AHEAD_BY = 5
-TEST_DIFFICULTY = 8  # fast enough for unit tests; real nodes use chain.DIFFICULTY
+TEST_DIFFICULTY = 8  # fast enough for unit tests; real nodes use blocks.DIFFICULTY
 
 
 def mine_chain(length: int, difficulty: int = TEST_DIFFICULTY) -> list:

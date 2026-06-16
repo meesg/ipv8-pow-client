@@ -15,7 +15,7 @@ from ipv8.community import Community, CommunitySettings
 from ipv8.lazy_community import lazy_wrapper
 from ipv8.peer import Peer
 
-from chain import (
+from blocks import (
     DIFFICULTY,
     HASH_SIZE,
     NONCE_MASK,

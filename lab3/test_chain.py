@@ -8,7 +8,7 @@ from hashlib import sha256
 from ipv8.keyvault.crypto import default_eccrypto
 from ipv8.messaging.serialization import default_serializer
 
-from chain import (
+from blocks import (
     Block,
     Transaction,
     genesis_block,
