@@ -67,8 +67,16 @@ class BlockResponse(DataClassPayload[6]):
 
 # --- Blockchain community: internal messages between our own 3 nodes ---
 
+
 @dataclass
-class NewBlockGossip(DataClassPayload[7]):
+class TransactionGossip(DataClassPayload[7]):
+    sender_key: bytes
+    data: bytes
+    timestamp: int
+    signature: bytes
+
+@dataclass
+class NewBlockGossip(DataClassPayload[8]):
     height: int
     prev_hash: bytes
     txs_hash: bytes
@@ -76,19 +84,18 @@ class NewBlockGossip(DataClassPayload[7]):
     difficulty: int
     nonce: int
     tx_hashes: bytes
+    provided_txs: list[TransactionGossip]
 
 
 @dataclass
-class TransactionGossip(DataClassPayload[8]):
-    sender_key: bytes
-    data: bytes
-    timestamp: int
-    signature: bytes
+class GetTransaction(DataClassPayload[9]):
+    tx_hash: bytes
 
 
 # DataClassPayload registers its wire format on first instantiation, which must
 # happen before the first inbound packet of that type is unpacked.
 for _cls in (RegisterBlockchain, RegisterResponse, SubmitTransaction,
              SubmitTransactionResponse, GetChainHeight, ChainHeightResponse,
-             GetBlock, BlockResponse, NewBlockGossip, TransactionGossip):
+             GetBlock, BlockResponse, NewBlockGossip, TransactionGossip,
+             GetTransaction):
     _cls(*([None] * len(_cls.__dataclass_fields__)))
